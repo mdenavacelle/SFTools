@@ -21,6 +21,7 @@ Les 3 principales solutions que votre idée apporte en réponse aux problèmes /
 
 ###3 - Proposition de valeur unique 
 En quoi votre idée est efficace et unique pour répondre aux besoins du marché et qui justifie le fait que votre offre devrait être préférée à celle des concurrents 
+* Visuel
 * Mise en place rapide et automatisée
 * Intégration à n'importe quelle org à la demande
 * Partie significative gratuite
