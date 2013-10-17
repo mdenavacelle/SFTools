@@ -9,7 +9,8 @@
 * gérer la connection
 * récupérer une liste des logs
 * télécharger la totalité des logs
-* colorization
+* colorisation syntaxique
+* unit tests
 
 ##Doc
 
