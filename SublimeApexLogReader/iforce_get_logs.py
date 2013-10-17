@@ -7,15 +7,11 @@ class iforce_get_logsCommand(sublime_plugin.WindowCommand):
 	antBin = None
 
 	def run(self, *args, **kwargs):
-		if platform.system() == 'Windows':
-			self.antBin = 'ant.bat'
-		else:
-			self.antBin = 'ant'
-		
+		logId = '07Lg0000007Q62REAS'
+		sublime.status_message('Recuperation du log '+logId)
 		self.currentProjectFolder = self.window.folders()[0]
 		print 'iForce: Apex Log Path: ' + self.currentProjectFolder
 		thedir = self.currentProjectFolder
-		logId = '07Lg0000007Q62REAS'
 		logName = thedir+'/logs/'+logId+'.apexlog'
 		theurl = 'https://cs17.salesforce.com/services/data/v28.0/tooling/sobjects/ApexLog/'+logId+'/Body'
 		req = urllib2.Request(theurl)
