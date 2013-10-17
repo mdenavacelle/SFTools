@@ -12,6 +12,7 @@
 * télécharger la totalité des logs
 * colorisation syntaxique
 * unit tests
+* utf8
 
 ##Doc
 
