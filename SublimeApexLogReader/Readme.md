@@ -1,4 +1,5 @@
 ##Basé sur Sublime iForce
+* utilise urllib2
 * session ID en dur
 * Récupère le log dont l'id est en dur
 * le sauvegarde dans un dossier "logs" à la racine du projet
