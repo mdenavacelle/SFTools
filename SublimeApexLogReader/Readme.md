@@ -7,9 +7,10 @@
 * accessible par le menu iForce
 
 ##TODO
-* gérer la connection
-* récupérer une liste des logs
-* télécharger la totalité des logs
+* ~~gérer la connection~~
+* ~~récupérer une liste des logs~~
+* ~~télécharger la totalité des logs~~
+* gérer la syncronisation des logs
 * colorisation syntaxique
 * unit tests
 * utf8
