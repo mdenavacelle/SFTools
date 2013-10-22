@@ -35,7 +35,7 @@ class LogBroker():
 		liste = self.getLocalLogsList()
 		out = set()
 		for i in liste:
-			out.add(i.split('_')[0])
+			out.add(i.split('.apexlog')[0])
 		return out
 
 	def getDistantLogsIdList(self):
@@ -62,7 +62,7 @@ class LogBroker():
 	def getDistantLog(self, id):
 		apiURL = '/tooling/sobjects/ApexLog/'+id+'/Body'
 		logBody = self.org.get( apiURL)
-		logName = id+'_'+str(time.time())+'.apexlog'
+		logName = id+'.apexlog'
 		log = ApexLog()
 		log.populate( logBody, logName)
 		return log
@@ -92,9 +92,8 @@ class ApexLog():
 	def populate(self, rawData, filename):
 		self.filename = filename
 		filename = filename.strip('./')
-		filename = filename.split('.apexlog')[0]
-		self.id = filename.split('_')[0]
-		self.time = filename.split('_')[1]
+		self.id = filename.split('.apexlog')[0]
+		self.time = str(time.time())
 
 		firstline = rawData.split('\n')[0]
 		self.version = firstline.split(' ')[0]
@@ -347,34 +346,6 @@ if __name__ == '__main__':
 class iforce_get_logsCommand(sublime_plugin.WindowCommand):
 	currentProjectFolder = None
 	antBin = None
-
-	def run2(self, *args, **kwargs):
-		logId = '07Lg0000007RAIEEA4'
-		sublime.status_message('Recuperation du log '+logId)
-		self.currentProjectFolder = self.window.folders()[0]
-		print 'iForce: Apex Log Path: ' + self.currentProjectFolder
-		thedir = self.currentProjectFolder
-		logName = thedir+'/logs/'+logId+'.apexlog'
-		theurl = 'https://cs17.salesforce.com/services/data/v28.0/tooling/sobjects/ApexLog/'+logId+'/Body'
-		req = urllib2.Request(theurl)
-		req.add_header( 'Authorization', 'Bearer 00Dg0000003KmBD!ARUAQPwojnkigd4mDhbmn8vYF8Fosb2t6w5ofc73p1XzNBlZuXciY.dJMX.wmPRMQCG2UH0DEQcq1U_eG4kPL_XMKvSrF5.Y')
-		try:
-			response = urllib2.urlopen( req)
-			data = response.read()
-			if len(data) <= 1:
-				raise Exception('Reponse vide')
-			print 'iForce: Apex Log Retrieved: ' + self.currentProjectFolder
-		except Exception, e:
-			print( e)
-			sublime.status_message('Erreur de rapatriement')
-		try:
-			outf = open(logName,'w')
-			outf.write( data)
-			outf.close()
-			self.window.open_file(logName)
-		except Exception, e2:
-			print('Ecriture du log impossible',e)
-			sublime.status_message('Erreur d\'ecriture')
 
 	def run(self, *args, **kwargs):
 		logging.error('GetLogs')
