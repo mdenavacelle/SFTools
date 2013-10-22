@@ -13,7 +13,6 @@
 * ~~pas de doublons~~
 * colorisation syntaxique
 * unit tests
-* utf8
 
 ##Doc
 
