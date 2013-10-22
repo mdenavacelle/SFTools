@@ -10,7 +10,7 @@
 * ~~gérer la connection~~
 * ~~récupérer une liste des logs~~
 * ~~télécharger la totalité des logs~~
-* gérer la syncronisation des logs
+* ~~pas de doublons~~
 * colorisation syntaxique
 * unit tests
 * utf8
