@@ -1,7 +1,11 @@
 SFTools
 =======
 
-Salesforce Developer Tools
+Salesforce Developer Tools concepts and code.
+
+Heavy WIP, feel free to participate :)
+
+===============
 
 ##ApexGrind
 
