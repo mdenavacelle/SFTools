@@ -9,8 +9,7 @@
 * ~~pas de doublons~~
 * colorisation syntaxique
 * unit tests
-* packager proprement en tant que plugin indépendant de iForce
-* découpler oauth2
+* découpler de iForce
 
 ##Doc
 
