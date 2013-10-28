@@ -9,6 +9,8 @@
 * ~~pas de doublons~~
 * colorisation syntaxique
 * unit tests
+* intégration plugin
+* découpler oauth2
 
 ##Doc
 
