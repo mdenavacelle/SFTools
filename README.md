@@ -1,9 +1,10 @@
 SFTools
 =======
 
-Salesforce Developer Tools concepts and code.
+Salesforce Developer Tools concepts and code. Not usable.
 
 Heavy WIP, feel free to participate :)
+
 
 ===============
 
