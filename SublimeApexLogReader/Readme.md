@@ -10,6 +10,7 @@
 * colorisation syntaxique
 * unit tests
 * découpler de iForce
+* autocompletion
 
 ##Doc
 
