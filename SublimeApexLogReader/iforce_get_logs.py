@@ -94,7 +94,7 @@ class ApexLog():
 		filename = filename.strip('./')
 		self.id = filename.split('.apexlog')[0]
 		self.time = str(time.time())
-		self.filename = self.time + '_' + filename
+		self.filename = filename + '_' + self.time
 
 		firstline = rawData.split('\n')[0]
 		self.version = firstline.split(' ')[0]
