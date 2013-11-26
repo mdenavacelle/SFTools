@@ -62,7 +62,7 @@ class LogBroker():
 	def getDistantLog(self, id):
 		apiURL = '/tooling/sobjects/ApexLog/'+id+'/Body'
 		logBody = self.org.get( apiURL)
-		logName = id+'.apexlog'
+		logName = id
 		log = ApexLog()
 		log.populate( logBody, logName)
 		return log
@@ -94,7 +94,7 @@ class ApexLog():
 		filename = filename.strip('./')
 		self.id = filename.split('.apexlog')[0]
 		self.time = str(time.time())
-		self.filename = filename + '_' + self.time
+		self.filename = filename + '_' + self.time + '.apexlog'
 
 		firstline = rawData.split('\n')[0]
 		self.version = firstline.split(' ')[0]
