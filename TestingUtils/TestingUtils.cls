@@ -166,4 +166,10 @@ public without sharing class TestingUtils {
     	long res1 = long.valueOf(res); 
     	return res1;
     }
+	
+	/* TEST consistence entre refactoring de test
+				for (String key:new list<string>{'Bt_Im_Rsdce_pstal__c','CadreSecteurPrive__c','Code_postal_phys__c','CodePstl__c','DateDiplomeSecondaire__c','DateObtentionDiplome__c','Lieudit_BP_phys__c','Lieudit_BP_pstal__c','N_et_Libel_V_pstal__c','Nature__c','NatureSecondaire__c','Niveau__c','NiveauSecondaire__c','RecordTypeId','Salutation','Situation_Dossier__c','SituationActuel__c','SituationCompte__c','Statutactuel__c','Ville_phys__c','Ville_pstal__c'}) {
+ 					system.assertEquals(a.get(key),aold.get(key));
+				}
+	*/
 }
