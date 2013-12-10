@@ -4,7 +4,7 @@ import os, platform
 import urllib, urllib2, json, logging, time, shutil
 import sublime, sublime_plugin
 import unittest
-
+import apexlog
 
 # coding=UTF-8
 
@@ -74,36 +74,6 @@ class LogBroker():
 			f.write( l.dump())
 			f.close()
 
-'''
-Représente un log Salesforce
-'''
-class ApexLog():
-	id = None
-	time  = None
-	body  = None
-	version = None
-	filename = None
-	log_levels = None
-
-
-	def isIncomplete(self):
-		return (self.id is None) or	(self.time is None) or	(self.version is None) or	(self.log_levels is None) or	(self.body is None)
-
-	def populate(self, rawData, filename):
-		self.filename = filename
-		filename = filename.strip('./')
-		self.id = filename.split('.apexlog')[0]
-		self.time = str(time.time())
-		self.filename = filename + '_' + self.time + '.apexlog'
-
-		firstline = rawData.split('\n')[0]
-		self.version = firstline.split(' ')[0]
-		self.log_levels = firstline.split(' ')[1]
-
-		self.body = rawData.split(firstline)[1][1:]
-
-	def dump(self):
-		return self.version+' '+self.log_levels+'\n'+self.body
 
 '''
 Représente une connection à Salesforce
