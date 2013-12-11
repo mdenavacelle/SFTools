@@ -6,7 +6,7 @@ import unittest, time, re
 Représente un log Salesforce
 '''
 class ApexLog():
-	rawData = None
+	rawBody = None
 	id = None
 	time  = None
 	body  = None
@@ -47,9 +47,14 @@ class ApexScoreLog(ApexLog):
 	BOUNDARY_CUMULATIVE_END  = 'CUMULATIVE_LIMIT_USAGE_END'
 
 	def __init__(self):
-		self.transactions = list()
-		self.codeblocks   = list()
-		self.cumulatives  = list()
+		self.transactionsIndexes = list()
+		self.codeblocksIndexes   = list()
+		self.cumulativesIndexes  = list()
+
+	def cumulatives(self, blocks):
+		blocksBoundaries = self.cumulativesIndexes[blocks]
+		data = '\n'.join(self.rawBody.split('\n')[blocksBoundaries[0]:blocksBoundaries[1]])
+		return data
 
 	def populate(self, rawData, filename):
 		ApexLog.populate(self, rawData, filename)
@@ -62,21 +67,50 @@ class ApexScoreLog(ApexLog):
 
 		logLines = self.rawBody.split('\n')
 
+		#Initial parsing and blocks detection
 		for i in logLines:
 			if self.BOUNDARY_TRANSACTION_START in i:
-				print('BOUNDARY_TRANSACTION_START',l)
+				#print('BOUNDARY_TRANSACTION_START',l)
 				buffer_transaction_start = l
 				l += 1
 				continue
 			if self.BOUNDARY_TRANSACTION_END in i:
-				print('BOUNDARY_TRANSACTION_END',l)
+				#print('BOUNDARY_TRANSACTION_END',l)
 				if buffer_transaction_start == None:
 					raise Exception('Transaction boundary problem')
-				self.transactions.append([buffer_transaction_start, l])
+				self.transactionsIndexes.append([buffer_transaction_start, l])
 				buffer_transaction_start = None
 				l += 1
 				continue
+			if self.BOUNDARY_CODEBLOCK_START in i:
+				#print('BOUNDARY_CODEBLOCK_START',l)
+				buffer_codeblock_start = l
+				l += 1
+				continue
+			if self.BOUNDARY_CODEBLOCK_END in i:
+				#print('BOUNDARY_CODEBLOCK_END',l)
+				if buffer_codeblock_start == None:
+					raise Exception('Codeblock boundary problem')
+				self.codeblocksIndexes.append([buffer_codeblock_start, l])
+				buffer_codeblock_start = None
+				l += 1
+				continue
+			if (self.BOUNDARY_CUMULATIVE_START in i) and (self.BOUNDARY_CUMULATIVE_END not in i):
+				#print('BOUNDARY_CUMULATIVE_START',l)
+				buffer_cumulative_start = l
+				l += 1
+				continue
+			if self.BOUNDARY_CUMULATIVE_END in i:
+				#print('BOUNDARY_CUMULATIVE_END',l)
+				if buffer_cumulative_start == None:
+					raise Exception('Cumulative boundary problem')
+				self.cumulativesIndexes.append([buffer_cumulative_start, l])
+				buffer_cumulative_start = None
+				l += 1
+				continue
 			l += 1
+
+
 
 
 # Testing !
@@ -163,6 +197,25 @@ class test_log_parser_test(unittest.TestCase):
 10:05:45.517 (517029000)|CODE_UNIT_FINISHED|TESTAP04Account.testBetweenDateObtention
 10:05:54.908 (9908917000)|EXECUTION_FINISHED'''
 
+	MOCK_CUMULATIVE_BLOCK='''10:05:45.563 (516991000)|CUMULATIVE_LIMIT_USAGE
+10:05:45.563|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Number of code statements: 50 out of 200000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 10
+  Number of Email Invocations: 0 out of 10
+  Number of fields describes: 0 out of 100
+  Number of record type describes: 0 out of 100
+  Number of child relationships describes: 0 out of 100
+  Number of picklist describes: 0 out of 100
+  Number of future calls: 0 out of 10
+'''
+
 	MOCK_BLOCK_AS_CSV_LINE='TESTAP04Account.testBetweenDateObtention	=1/100	=1/50000	=0/20	=0/150	=0/10000	=50/200000	=0/10000	=0/6000000	=0/10	=0/10	=0/100	=0/100	=0/100	=0/100	=0/10'
 
 	'''
@@ -176,24 +229,34 @@ class test_log_parser_test(unittest.TestCase):
 
 	def test_detectBlocksAndKeepsLineNumbers(self):
 		log = ApexScoreLog()
-		log.populate(self.MOCK_BLOCK, 'test_scoreLog')
+		log.populate(self.MOCK_BLOCK, 'test_detectBlocksAndKeepsLineNumbers')
 
-		self.assertEquals(len(log.transactions), 1)
-		self.assertEquals(log.transactions[0], [0,78])
+		self.assertEquals(len(log.transactionsIndexes), 1)
+		self.assertEquals(log.transactionsIndexes[0], [0,78])
 
 	def test_detectSeveralBlocksAndKeepsLineNumbers(self):
 		log = ApexScoreLog()
-		print('@')
-		print(log.transactions)
-		print('@')
-		log.populate(self.MOCK_BLOCK + '\n' + self.MOCK_BLOCK, 'test_scoreLog_multiple')
-		print('@')
-		print(log.transactions)
-		print('@')
+		log.populate(self.MOCK_BLOCK + '\n' + self.MOCK_BLOCK, 'test_detectSeveralBlocksAndKeepsLineNumbers')
 
-		self.assertEquals(len(log.transactions), 2)
-		self.assertEquals(log.transactions[0], [0,78])
-		self.assertEquals(log.transactions[1], [78+0,78+78])
+		self.assertEquals(len(log.transactionsIndexes), 2)
+		self.assertEquals(log.transactionsIndexes[0], [0,78])
+		self.assertEquals(log.transactionsIndexes[1], [79+0,79+78])
+
+	def test_detectSeveralInternalBlocksAndKeepsLineNumbers(self):
+		log = ApexScoreLog()
+		log.populate(self.MOCK_BLOCK + '\n' + self.MOCK_BLOCK, 'test_detectSeveralInternalBlocksAndKeepsLineNumbers')
+
+		self.assertEquals(len(log.transactionsIndexes), 2)
+		self.assertEquals(log.transactionsIndexes[0], [0,78])
+		self.assertEquals(log.transactionsIndexes[1], [79+0,79+78])
+		self.assertEquals(log.codeblocksIndexes[0], [1,77])
+		self.assertEquals(log.codeblocksIndexes[1], [79+1,79+77])
+
+	def test_getSpecificBlock(self):
+		log = ApexScoreLog()
+		log.populate(self.MOCK_BLOCK, 'test_getSpecificBlock')
+
+		self.assertEquals(log.cumulatives(0), self.MOCK_CUMULATIVE_BLOCK)
 
 
 if __name__ == '__main__':
