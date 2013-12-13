@@ -128,8 +128,23 @@ class ApexScoreLog(ApexLog):
 				continue
 			l += 1
 
-	def CSVScoreLine(self, block):
-		return block
+	def CSVScoreLine(self, index):
+		scores = list()
+		for j in self.cumulatives(index).split('\n'):
+			if j[:1] == ' ':
+				amountStart = j.find(':')+2
+				amountEnd = j[amountStart:].find(' ') + amountStart
+				amount = j[amountStart:amountEnd]
+				total  = j[amountEnd+8:]
+				score = '=' + str(amount) + '/' + str(total)
+				scores.append(score)
+
+		line = self.blockName(index) + '\t'
+		line += '\t'.join(scores)
+		return line
+
+
+		return 'TESTAP04Account.testBetweenDateObtention\t=1/100\t=1/50000\t=0/20\t=0/150\t=0/10000\t=50/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10'
 
 	def codeName(self, boundary, codeTable):
 		for i in codeTable:
@@ -415,11 +430,22 @@ class test_log_parser_test(unittest.TestCase):
 		except:
 			self.assertTrue(True)
 
+	def test_codeblockNameFromTransaction(self):
+		log = ApexScoreLog()
+		log.populate(self.MOCK_BLOCK, 'test_codeblockNameFromTransaction')
+
+		self.assertEquals(log.blockName(0), 'TESTAP04Account.testBetweenDateObtention')
+
 	def test_cumulativeToCSVLine(self):
 		log = ApexScoreLog()
-		log.populate(self.MOCK_CUMULATIVE_BLOCK, 'cumulativeToCSVLine')
+		log.populate(self.MOCK_BLOCK, 'cumulativeToCSVLine')
 
-		self.assertEquals(log.CSVScoreLine(), self.MOCK_BLOCK_AS_CSV_LINE)
+		self.assertEquals(log.CSVScoreLine(0), self.MOCK_BLOCK_AS_CSV_LINE)
+
+	def test_wholeApexLogfileExtraction(self):
+		log = ApexScoreLog()
+		log.populate(open('mock.apexLog').read(), 'test_wholeApexLogfileExtraction')
+
 
 
 if __name__ == '__main__':
