@@ -27,12 +27,15 @@ class ApexLog():
 		self.time = str(time.time())
 		self.filename = filename + '_' + self.time + '.apexlog'
 
-		firstline = rawData.split('\n')[0]
-		self.version = firstline.split(' ')[0]
-		self.log_levels = firstline.split(' ')[1]
-		self.header = firstline
+		try:
+			firstline = rawData.split('\n')[0]
+			self.header = firstline
+			self.version = firstline.split(' ')[0]
+			self.log_levels = firstline.split(' ')[1]
+			self.body = rawData.split(firstline)[1][1:]
+		except:
+			None # No Header
 
-		self.body = rawData.split(firstline)[1][1:]
 
 	def dump(self):
 		return self.version+' '+self.log_levels+'\n'+self.body
@@ -46,15 +49,30 @@ class ApexScoreLog(ApexLog):
 	BOUNDARY_CUMULATIVE_START  = 'CUMULATIVE_LIMIT_USAGE'
 	BOUNDARY_CUMULATIVE_END  = 'CUMULATIVE_LIMIT_USAGE_END'
 
+	codeTypes = ['transactions', 'codeblocks', 'cumulatives']
+
 	def __init__(self):
 		self.transactionsIndexes = list()
 		self.codeblocksIndexes   = list()
 		self.cumulativesIndexes  = list()
 
-	def cumulatives(self, blocks):
-		blocksBoundaries = self.cumulativesIndexes[blocks]
-		data = '\n'.join(self.rawBody.split('\n')[blocksBoundaries[0]:blocksBoundaries[1]])
-		return data
+	def transactions(self, index):
+		codeDataIndexes = self.transactionsIndexes
+		return self.extractDataFromRaw(codeDataIndexes, index)
+
+	def cumulatives(self, index):
+		codeDataIndexes = self.cumulativesIndexes
+		return self.extractDataFromRaw(codeDataIndexes, index)
+
+	def codeblocks(self, index):
+		codeDataIndexes = self.codeblocksIndexes
+		return self.extractDataFromRaw(codeDataIndexes, index)
+
+	def extractDataFromRaw(self, codeDataIndexes, index):
+		if index > len(codeDataIndexes) - 1 :
+			raise Exception('No transaction with index ' + str(index))
+		return '\n'.join(self.rawBody.split('\n')[codeDataIndexes[index][0]:codeDataIndexes[index][1]])
+
 
 	def populate(self, rawData, filename):
 		ApexLog.populate(self, rawData, filename)
@@ -110,6 +128,23 @@ class ApexScoreLog(ApexLog):
 				continue
 			l += 1
 
+	def CSVScoreLine(self, block):
+		return block
+
+	def codeName(self, boundary, codeTable):
+		for i in codeTable:
+			if (boundary in i):
+				return i[70:]
+
+	def blockName(self, blockNumber):
+		codeTable = self.codeblocks(blockNumber).split('\n')
+		boundary = self.BOUNDARY_CODEBLOCK_START
+		return self.codeName( boundary, codeTable)
+
+	def transactionName(self, blockNumber):
+		codeTable = self.transactions(blockNumber).split('\n')
+		boundary = self.BOUNDARY_CODEBLOCK_START
+		return self.codeName( boundary, codeTable)
 
 
 
@@ -196,6 +231,113 @@ class test_log_parser_test(unittest.TestCase):
 
 10:05:45.517 (517029000)|CODE_UNIT_FINISHED|TESTAP04Account.testBetweenDateObtention
 10:05:54.908 (9908917000)|EXECUTION_FINISHED'''
+	
+	MOCK_TRANSACTION='''10:05:55.417 (10417361000)|EXECUTION_STARTED
+10:05:45.411 (411557000)|CODE_UNIT_STARTED|[EXTERNAL]|01p200000005MDn|TESTAP05Account.testBetweenDateObtention
+10:05:45.516 (516534000)|LIMIT_USAGE|[69]|SCRIPT_STATEMENTS|41|200000
+10:05:45.516 (516616000)|METHOD_ENTRY|[299]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516723000)|SYSTEM_METHOD_ENTRY|[250]|Date.today()
+10:05:45.516 (516775000)|SYSTEM_METHOD_EXIT|[250]|Date.today()
+10:05:45.516 (516808000)|SYSTEM_METHOD_ENTRY|[250]|Date.daysBetween(Date)
+10:05:45.516 (516825000)|SYSTEM_METHOD_EXIT|[250]|Date.daysBetween(Date)
+10:05:45.516 (516847000)|METHOD_EXIT|[299]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516860000)|LIMIT_USAGE|[302]|SCRIPT_STATEMENTS|45|200000
+10:05:45.516 (516868000)|LIMIT_USAGE|[303]|SCRIPT_STATEMENTS|46|200000
+10:05:45.516 (516879000)|METHOD_ENTRY|[303]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516914000)|METHOD_EXIT|[303]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516925000)|LIMIT_USAGE|[304]|SCRIPT_STATEMENTS|50|200000
+10:05:45.563 (516991000)|CUMULATIVE_LIMIT_USAGE
+10:05:45.563|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Number of code statements: 50 out of 200000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 10
+  Number of Email Invocations: 0 out of 10
+  Number of fields describes: 0 out of 100
+  Number of record type describes: 0 out of 100
+  Number of child relationships describes: 0 out of 100
+  Number of picklist describes: 0 out of 100
+  Number of future calls: 0 out of 10
+
+10:05:45.563|CUMULATIVE_LIMIT_USAGE_END
+
+10:05:45.517 (517029000)|CODE_UNIT_FINISHED|TESTAP05Account.testBetweenDateObtention
+10:05:54.908 (9908917000)|EXECUTION_FINISHED'''
+
+	MOCK_CODEBLOCK='''10:05:45.411 (411557000)|CODE_UNIT_STARTED|[EXTERNAL]|01p200000005MDn|TESTAP06Account.testBetweenDateObtention
+10:05:45.516 (516534000)|LIMIT_USAGE|[69]|SCRIPT_STATEMENTS|41|200000
+10:05:45.516 (516616000)|METHOD_ENTRY|[299]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516723000)|SYSTEM_METHOD_ENTRY|[250]|Date.today()
+10:05:45.516 (516775000)|SYSTEM_METHOD_EXIT|[250]|Date.today()
+10:05:45.516 (516808000)|SYSTEM_METHOD_ENTRY|[250]|Date.daysBetween(Date)
+10:05:45.516 (516825000)|SYSTEM_METHOD_EXIT|[250]|Date.daysBetween(Date)
+10:05:45.516 (516847000)|METHOD_EXIT|[299]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516860000)|LIMIT_USAGE|[302]|SCRIPT_STATEMENTS|45|200000
+10:05:45.516 (516868000)|LIMIT_USAGE|[303]|SCRIPT_STATEMENTS|46|200000
+10:05:45.516 (516879000)|METHOD_ENTRY|[303]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516914000)|METHOD_EXIT|[303]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516925000)|LIMIT_USAGE|[304]|SCRIPT_STATEMENTS|50|200000
+10:05:45.563 (516991000)|CUMULATIVE_LIMIT_USAGE
+10:05:45.563|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Number of code statements: 50 out of 200000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 10
+  Number of Email Invocations: 0 out of 10
+  Number of fields describes: 0 out of 100
+  Number of record type describes: 0 out of 100
+  Number of child relationships describes: 0 out of 100
+  Number of picklist describes: 0 out of 100
+  Number of future calls: 0 out of 10
+
+10:05:45.563|CUMULATIVE_LIMIT_USAGE_END
+
+10:05:45.517 (517029000)|CODE_UNIT_FINISHED|TESTAP06Account.testBetweenDateObtention'''
+
+	MOCK_CODEBLOCK_2='''10:05:45.411 (411557000)|CODE_UNIT_STARTED|[EXTERNAL]|01p200000005MDn|TESTAP07Account.testBetweenDateObtention
+10:05:45.516 (516534000)|LIMIT_USAGE|[69]|SCRIPT_STATEMENTS|41|200000
+10:05:45.516 (516616000)|METHOD_ENTRY|[299]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516723000)|SYSTEM_METHOD_ENTRY|[250]|Date.today()
+10:05:45.516 (516775000)|SYSTEM_METHOD_EXIT|[250]|Date.today()
+10:05:45.516 (516808000)|SYSTEM_METHOD_ENTRY|[250]|Date.daysBetween(Date)
+10:05:45.516 (516825000)|SYSTEM_METHOD_EXIT|[250]|Date.daysBetween(Date)
+10:05:45.516 (516847000)|METHOD_EXIT|[299]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516860000)|LIMIT_USAGE|[302]|SCRIPT_STATEMENTS|45|200000
+10:05:45.516 (516868000)|LIMIT_USAGE|[303]|SCRIPT_STATEMENTS|46|200000
+10:05:45.516 (516879000)|METHOD_ENTRY|[303]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516914000)|METHOD_EXIT|[303]|01p200000002YJY|AP04Account.betweenDateObtention(Date)
+10:05:45.516 (516925000)|LIMIT_USAGE|[304]|SCRIPT_STATEMENTS|50|200000
+10:05:45.563 (516991000)|CUMULATIVE_LIMIT_USAGE
+10:05:45.563|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Number of code statements: 50 out of 200000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 10
+  Number of Email Invocations: 0 out of 10
+  Number of fields describes: 0 out of 100
+  Number of record type describes: 0 out of 100
+  Number of child relationships describes: 0 out of 100
+  Number of picklist describes: 0 out of 100
+  Number of future calls: 0 out of 10
+
+10:05:45.563|CUMULATIVE_LIMIT_USAGE_END
+
+10:05:45.517 (517029000)|CODE_UNIT_FINISHED|TESTAP07Account.testBetweenDateObtention'''
 
 	MOCK_CUMULATIVE_BLOCK='''10:05:45.563 (516991000)|CUMULATIVE_LIMIT_USAGE
 10:05:45.563|LIMIT_USAGE_FOR_NS|(default)|
@@ -256,7 +398,28 @@ class test_log_parser_test(unittest.TestCase):
 		log = ApexScoreLog()
 		log.populate(self.MOCK_BLOCK, 'test_getSpecificBlock')
 
-		self.assertEquals(log.cumulatives(0), self.MOCK_CUMULATIVE_BLOCK)
+		self.assertEquals(log.transactions(0), '\n'.join(self.MOCK_BLOCK.split('\n')[:len(self.MOCK_BLOCK.split('\n'))-1])) # just pop the last line
+
+	def test_codeBlockToCodeName(self):
+		EXPECTED = 'MOCKNAME'
+		log = ApexScoreLog()
+		mockDoubleCodeblocksTransaction = 'EXECUTION_STARTED' + '\n' + self.MOCK_CODEBLOCK.replace('TESTAP06Account',EXPECTED) + '\n' + self.MOCK_CODEBLOCK_2 + '\n' + 'EXECUTION_FINISHED'
+		log.populate(mockDoubleCodeblocksTransaction, 'test_codeBlockToCodeName')
+
+		self.assertEquals(log.blockName(0), EXPECTED+'.testBetweenDateObtention')
+		self.assertEquals(log.blockName(1), 'TESTAP07Account.testBetweenDateObtention')
+		self.assertEquals(log.transactionName(0), EXPECTED+'.testBetweenDateObtention')
+		try: # could not use self.assertRaises
+			log.transactionName(1)
+			self.assertTrue(False)
+		except:
+			self.assertTrue(True)
+
+	def test_cumulativeToCSVLine(self):
+		log = ApexScoreLog()
+		log.populate(self.MOCK_CUMULATIVE_BLOCK, 'cumulativeToCSVLine')
+
+		self.assertEquals(log.CSVScoreLine(), self.MOCK_BLOCK_AS_CSV_LINE)
 
 
 if __name__ == '__main__':
