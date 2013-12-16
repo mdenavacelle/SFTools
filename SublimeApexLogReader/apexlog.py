@@ -40,6 +40,9 @@ class ApexLog():
 	def dump(self):
 		return self.version+' '+self.log_levels+'\n'+self.body
 
+'''
+Représente un ApexLog permettant de générer un score de performance.
+'''
 class ApexScoreLog(ApexLog):
 
 	BOUNDARY_TRANSACTION_START = 'EXECUTION_STARTED'
@@ -81,6 +84,7 @@ class ApexScoreLog(ApexLog):
 		l = 0
 		buffer_transaction_start = None
 		buffer_codeblock_start = None
+		buffer_codeblock_stack = list()
 		buffer_cumulative_start = None
 
 		logLines = self.rawBody.split('\n')
@@ -100,17 +104,19 @@ class ApexScoreLog(ApexLog):
 				buffer_transaction_start = None
 				l += 1
 				continue
-			if self.BOUNDARY_CODEBLOCK_START in i:
-				#print('BOUNDARY_CODEBLOCK_START',l)
-				buffer_codeblock_start = l
+			if (self.BOUNDARY_CODEBLOCK_START in i):
+				if (self.BOUNDARY_TRANSACTION_START in logLines[l-1]): #Transaction code unit start
+					buffer_codeblock_stack = list() #stack reset
+				buffer_codeblock_stack.append(l)
 				l += 1
 				continue
 			if self.BOUNDARY_CODEBLOCK_END in i:
-				#print('BOUNDARY_CODEBLOCK_END',l)
-				if buffer_codeblock_start == None:
+				#print('BOUNDARY_CODEBLOCK_END',l, i)
+				if len(buffer_codeblock_stack) < 1:
 					raise Exception('Codeblock boundary problem')
-				self.codeblocksIndexes.append([buffer_codeblock_start, l])
-				buffer_codeblock_start = None
+				lastindex = buffer_codeblock_stack[len(buffer_codeblock_stack) - 1]
+				self.codeblocksIndexes.append([lastindex, l])
+				buffer_codeblock_stack = buffer_codeblock_stack[:len(buffer_codeblock_stack) - 1]
 				l += 1
 				continue
 			if (self.BOUNDARY_CUMULATIVE_START in i) and (self.BOUNDARY_CUMULATIVE_END not in i):
@@ -143,17 +149,23 @@ class ApexScoreLog(ApexLog):
 		line += '\t'.join(scores)
 		return line
 
-
-		return 'TESTAP04Account.testBetweenDateObtention\t=1/100\t=1/50000\t=0/20\t=0/150\t=0/10000\t=50/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10'
+	def scoreAsCSV(self):
+		scores = list()
+		for i in range(len(self.cumulativesIndexes)):
+			print(i,self.CSVScoreLine(i))
+			scores.append(self.CSVScoreLine(i))
+		return '\n'.join(scores)
 
 	def codeName(self, boundary, codeTable):
 		for i in codeTable:
-			if (boundary in i):
-				return i[70:]
+			print( boundary,i)
+			if boundary in i:
+				it = i.split('|')
+				return it[len(it)-1]
 
 	def blockName(self, blockNumber):
 		codeTable = self.codeblocks(blockNumber).split('\n')
-		boundary = self.BOUNDARY_CODEBLOCK_START
+		boundary = self.BOUNDARY_CODEBLOCK_END
 		return self.codeName( boundary, codeTable)
 
 	def transactionName(self, blockNumber):
@@ -445,6 +457,21 @@ class test_log_parser_test(unittest.TestCase):
 	def test_wholeApexLogfileExtraction(self):
 		log = ApexScoreLog()
 		log.populate(open('mock.apexLog').read(), 'test_wholeApexLogfileExtraction')
+
+		self.assertEquals(len(log.transactionsIndexes), 1)
+		self.assertEquals(len(log.codeblocksIndexes), 5)
+		self.assertEquals(len(log.cumulativesIndexes), 3)
+
+	def test_getScoreAsCSV(self):
+		log = ApexScoreLog()
+		log.populate(open('mock.apexLog').read(), 'test_getScoreAsCSV')
+
+		expected = '''OpportunityAfterInsert on Opportunity trigger event AfterInsert for [006g0000003LDkZ]\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=21/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10
+OpportunityBeforeUpdate on Opportunity trigger event BeforeUpdate for [006g0000003LDkZ]\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=28/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10
+execute_anonymous_apex\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=28/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10'''
+
+		self.assertEquals(log.scoreAsCSV(), expected)
+
 
 
 
