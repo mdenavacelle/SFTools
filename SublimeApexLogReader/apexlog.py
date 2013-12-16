@@ -47,10 +47,10 @@ class ApexScoreLog(ApexLog):
 
 	BOUNDARY_TRANSACTION_START = 'EXECUTION_STARTED'
 	BOUNDARY_TRANSACTION_END   = 'EXECUTION_FINISHED'
-	BOUNDARY_CODEBLOCK_START  = 'CODE_UNIT_START'
-	BOUNDARY_CODEBLOCK_END    = 'CODE_UNIT_FINISHED'
+	BOUNDARY_CODEBLOCK_START   = 'CODE_UNIT_START'
+	BOUNDARY_CODEBLOCK_END     = 'CODE_UNIT_FINISHED'
 	BOUNDARY_CUMULATIVE_START  = 'CUMULATIVE_LIMIT_USAGE'
-	BOUNDARY_CUMULATIVE_END  = 'CUMULATIVE_LIMIT_USAGE_END'
+	BOUNDARY_CUMULATIVE_END    = 'CUMULATIVE_LIMIT_USAGE_END'
 
 	codeTypes = ['transactions', 'codeblocks', 'cumulatives']
 
@@ -58,6 +58,10 @@ class ApexScoreLog(ApexLog):
 		self.transactionsIndexes = list()
 		self.codeblocksIndexes   = list()
 		self.cumulativesIndexes  = list()
+
+		self.transactionsNames = list()
+		self.codeblocksNames   = list()
+		self.cumulativesNames  = list()
 
 	def transactions(self, index):
 		codeDataIndexes = self.transactionsIndexes
@@ -69,7 +73,8 @@ class ApexScoreLog(ApexLog):
 
 	def codeblocks(self, index):
 		codeDataIndexes = self.codeblocksIndexes
-		return self.extractDataFromRaw(codeDataIndexes, index)
+		data = self.extractDataFromRaw(codeDataIndexes, index)
+		return data
 
 	def extractDataFromRaw(self, codeDataIndexes, index):
 		if index > len(codeDataIndexes) - 1 :
@@ -92,8 +97,12 @@ class ApexScoreLog(ApexLog):
 		#Initial parsing and blocks detection
 		for i in logLines:
 			if self.BOUNDARY_TRANSACTION_START in i:
+				buffer_codeblock_stack = list() #stack reset
 				#print('BOUNDARY_TRANSACTION_START',l)
 				buffer_transaction_start = l
+				nextLineTable = logLines[l+1].split('|')
+				transactionName = nextLineTable[len(nextLineTable)-1]
+				self.transactionsNames.append(transactionName)
 				l += 1
 				continue
 			if self.BOUNDARY_TRANSACTION_END in i:
@@ -104,16 +113,23 @@ class ApexScoreLog(ApexLog):
 				buffer_transaction_start = None
 				l += 1
 				continue
+
 			if (self.BOUNDARY_CODEBLOCK_START in i):
-				if (self.BOUNDARY_TRANSACTION_START in logLines[l-1]): #Transaction code unit start
-					buffer_codeblock_stack = list() #stack reset
+				if self.BOUNDARY_TRANSACTION_START in logLines[l-1]:
+					l += 1
+					continue
+				lineTable = i.split('|')
+				codeblockName = lineTable[len(lineTable)-1]
+				self.codeblocksNames.append(codeblockName)
+				#print('BOUNDARY_CODEBLOCK_START',l)
 				buffer_codeblock_stack.append(l)
 				l += 1
 				continue
 			if self.BOUNDARY_CODEBLOCK_END in i:
-				#print('BOUNDARY_CODEBLOCK_END',l, i)
-				if len(buffer_codeblock_stack) < 1:
-					raise Exception('Codeblock boundary problem')
+				if self.BOUNDARY_TRANSACTION_END in logLines[l+1]:
+					l += 1
+					continue
+				#print('BOUNDARY_CODEBLOCK_END',l, i, logLines[l])
 				lastindex = buffer_codeblock_stack[len(buffer_codeblock_stack) - 1]
 				self.codeblocksIndexes.append([lastindex, l])
 				buffer_codeblock_stack = buffer_codeblock_stack[:len(buffer_codeblock_stack) - 1]
@@ -130,6 +146,11 @@ class ApexScoreLog(ApexLog):
 					raise Exception('Cumulative boundary problem')
 				self.cumulativesIndexes.append([buffer_cumulative_start, l])
 				buffer_cumulative_start = None
+
+				lineTable = logLines[l+2].split('|')
+				codeblockName = lineTable[len(lineTable)-1]
+				self.cumulativesNames.append(codeblockName)
+
 				l += 1
 				continue
 			l += 1
@@ -145,35 +166,21 @@ class ApexScoreLog(ApexLog):
 				score = '=' + str(amount) + '/' + str(total)
 				scores.append(score)
 
-		line = self.blockName(index) + '\t'
+		line = self.cumulativesNames[index] + '\t'
 		line += '\t'.join(scores)
 		return line
 
 	def scoreAsCSV(self):
 		scores = list()
 		for i in range(len(self.cumulativesIndexes)):
-			print(i,self.CSVScoreLine(i))
 			scores.append(self.CSVScoreLine(i))
 		return '\n'.join(scores)
 
-	def codeName(self, boundary, codeTable):
-		for i in codeTable:
-			print( boundary,i)
-			if boundary in i:
-				it = i.split('|')
-				return it[len(it)-1]
-
 	def blockName(self, blockNumber):
-		codeTable = self.codeblocks(blockNumber).split('\n')
-		boundary = self.BOUNDARY_CODEBLOCK_END
-		return self.codeName( boundary, codeTable)
+		return self.codeblocksNames[blockNumber]
 
 	def transactionName(self, blockNumber):
-		codeTable = self.transactions(blockNumber).split('\n')
-		boundary = self.BOUNDARY_CODEBLOCK_START
-		return self.codeName( boundary, codeTable)
-
-
+		return self.transactionsNames[blockNumber]
 
 # Testing !
 class test_log_parser_test(unittest.TestCase):
@@ -388,7 +395,7 @@ class test_log_parser_test(unittest.TestCase):
 	MOCK_BLOCK_AS_CSV_LINE='TESTAP04Account.testBetweenDateObtention	=1/100	=1/50000	=0/20	=0/150	=0/10000	=50/200000	=0/10000	=0/6000000	=0/10	=0/10	=0/100	=0/100	=0/100	=0/100	=0/10'
 
 	'''
-	Tests wether log has correct filters setup
+	Tests whether log has correct filters setup
 	'''
 	def validLogFiltersForScoring(self):
 		log = ApexScoreLog()
@@ -413,13 +420,14 @@ class test_log_parser_test(unittest.TestCase):
 
 	def test_detectSeveralInternalBlocksAndKeepsLineNumbers(self):
 		log = ApexScoreLog()
-		log.populate(self.MOCK_BLOCK + '\n' + self.MOCK_BLOCK, 'test_detectSeveralInternalBlocksAndKeepsLineNumbers')
+		log.populate(open(self.MOCK_LOG).read(), 'test_detectSeveralInternalBlocksAndKeepsLineNumbers')
 
-		self.assertEquals(len(log.transactionsIndexes), 2)
-		self.assertEquals(log.transactionsIndexes[0], [0,78])
-		self.assertEquals(log.transactionsIndexes[1], [79+0,79+78])
-		self.assertEquals(log.codeblocksIndexes[0], [1,77])
-		self.assertEquals(log.codeblocksIndexes[1], [79+1,79+77])
+		self.assertEquals(len(log.transactionsIndexes), 1)
+		self.assertEquals(log.transactionsIndexes[0], [2,73])
+		self.assertEquals(log.codeblocksIndexes[0], [4,5])
+		self.assertEquals(log.codeblocksIndexes[1], [6,27])
+		self.assertEquals(log.codeblocksIndexes[2], [29,50])
+		self.assertEquals(log.codeblocksIndexes[3], [28,51])
 
 	def test_getSpecificBlock(self):
 		log = ApexScoreLog()
@@ -427,15 +435,14 @@ class test_log_parser_test(unittest.TestCase):
 
 		self.assertEquals(log.transactions(0), '\n'.join(self.MOCK_BLOCK.split('\n')[:len(self.MOCK_BLOCK.split('\n'))-1])) # just pop the last line
 
-	def test_codeBlockToCodeName(self):
-		EXPECTED = 'MOCKNAME'
+	def test_codeBlocksToCodeName(self):
 		log = ApexScoreLog()
-		mockDoubleCodeblocksTransaction = 'EXECUTION_STARTED' + '\n' + self.MOCK_CODEBLOCK.replace('TESTAP06Account',EXPECTED) + '\n' + self.MOCK_CODEBLOCK_2 + '\n' + 'EXECUTION_FINISHED'
-		log.populate(mockDoubleCodeblocksTransaction, 'test_codeBlockToCodeName')
-
-		self.assertEquals(log.blockName(0), EXPECTED+'.testBetweenDateObtention')
-		self.assertEquals(log.blockName(1), 'TESTAP07Account.testBetweenDateObtention')
-		self.assertEquals(log.transactionName(0), EXPECTED+'.testBetweenDateObtention')
+		log.populate(open(self.MOCK_LOG).read(), 'test_codeBlocksToCodeName')
+		self.assertEquals(log.blockName(0), 'Validation:Opportunity:new')
+		self.assertEquals(log.blockName(1), 'OpportunityAfterInsert on Opportunity trigger event AfterInsert for [006g0000003LETO]')
+		self.assertEquals(log.blockName(2), 'Workflow:Opportunity')
+		self.assertEquals(log.blockName(3), 'OpportunityBeforeUpdate on Opportunity trigger event BeforeUpdate for [006g0000003LETO]')
+		self.assertEquals(log.transactionName(0), 'execute_anonymous_apex')
 		try: # could not use self.assertRaises
 			log.transactionName(1)
 			self.assertTrue(False)
@@ -444,30 +451,29 @@ class test_log_parser_test(unittest.TestCase):
 
 	def test_codeblockNameFromTransaction(self):
 		log = ApexScoreLog()
-		log.populate(self.MOCK_BLOCK, 'test_codeblockNameFromTransaction')
+		log.populate(open(self.MOCK_LOG).read(), 'test_codeblockNameFromTransaction')
 
-		self.assertEquals(log.blockName(0), 'TESTAP04Account.testBetweenDateObtention')
+		self.assertEquals(log.transactionName(0), 'execute_anonymous_apex')
 
 	def test_cumulativeToCSVLine(self):
 		log = ApexScoreLog()
 		log.populate(self.MOCK_BLOCK, 'cumulativeToCSVLine')
-
 		self.assertEquals(log.CSVScoreLine(0), self.MOCK_BLOCK_AS_CSV_LINE)
 
 	def test_wholeApexLogfileExtraction(self):
 		log = ApexScoreLog()
-		log.populate(open('mock.apexLog').read(), 'test_wholeApexLogfileExtraction')
+		log.populate(open(self.MOCK_LOG).read(), 'test_wholeApexLogfileExtraction')
 
 		self.assertEquals(len(log.transactionsIndexes), 1)
-		self.assertEquals(len(log.codeblocksIndexes), 5)
+		self.assertEquals(len(log.codeblocksIndexes), 4)
 		self.assertEquals(len(log.cumulativesIndexes), 3)
 
 	def test_getScoreAsCSV(self):
 		log = ApexScoreLog()
 		log.populate(open('mock.apexLog').read(), 'test_getScoreAsCSV')
 
-		expected = '''OpportunityAfterInsert on Opportunity trigger event AfterInsert for [006g0000003LDkZ]\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=21/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10
-OpportunityBeforeUpdate on Opportunity trigger event BeforeUpdate for [006g0000003LDkZ]\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=28/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10
+		expected = '''OpportunityAfterInsert on Opportunity trigger event AfterInsert for [006g0000003LETO]\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=21/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10
+OpportunityBeforeUpdate on Opportunity trigger event BeforeUpdate for [006g0000003LETO]\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=28/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10
 execute_anonymous_apex\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=28/200000\t=0/10000\t=0/6000000\t=0/10\t=0/10\t=0/100\t=0/100\t=0/100\t=0/100\t=0/10'''
 
 		self.assertEquals(log.scoreAsCSV(), expected)
