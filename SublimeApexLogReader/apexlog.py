@@ -479,7 +479,5 @@ execute_anonymous_apex\t=2/100\t=1/50000\t=0/20\t=1/150\t=1/10000\t=28/200000\t=
 		self.assertEquals(log.scoreAsCSV(), expected)
 
 
-
-
 if __name__ == '__main__':
 	unittest.main()
